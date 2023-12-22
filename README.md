@@ -5,7 +5,7 @@ Riley Taylor
 December 2023
 
 #####################################
-IMPORTANT:
+# IMPORTANT:
 
 The scripts run best via developer buttons in the desired workbook. This is because, while I could verify that the code worked and generated the desired results when using buttons and debugging, I found that sometimes the console would give me errors depending on where my cursor was in the VBA developer window. I wrote several Sub procedures and even a function to make the code look cleaner, and I don't think it's great at handling that. For reference, the excel files have buttons on their first worksheet with the macros assigned. 
 
