@@ -1,0 +1,221 @@
+'Riley Taylor
+'UTA EDX Data Analytics BootCamp December 2023 Cohort
+'Challenge Module 2
+
+
+Sub WorkbookMarketAnalysis():
+    'we need to iterate through all worksheets, then iterate through all rows, while adding to certain variables
+    'we will need to check for the existence of a summary results worksheet, and if it doesn't exist, create it
+    'we want to sum the volume across a particular ticker until we run out of that ticker
+    'we want to store that total volume
+    'we want to store the initial open value and final close value for a ticker
+    'we want to display the ticker, the change finalClose - firstOpen, and assign the percentage change on that worksheet
+    
+    Dim worksheetCount As Integer
+    worksheetCount = ActiveWorkbook.Worksheets.Count
+    
+    Dim i As Integer
+    
+    For i = 1 To worksheetCount
+        'MsgBox (ActiveWorkbook.Worksheets(i).Name)
+        'MsgBox (i)
+        Sheets(i).Activate
+        Call WorksheetMarketAnalysis
+    Next i
+    
+    
+
+End Sub
+
+
+Sub ResetWorkbookAnalysis():
+    Dim worksheetCount As Integer
+    worksheetCount = ActiveWorkbook.Worksheets.Count
+    
+    Dim i As Integer
+    
+    For i = 1 To worksheetCount
+        'MsgBox (ActiveWorkbook.Worksheets(i).Name)
+        'MsgBox (i)
+        Sheets(i).Activate
+        Call ResetWorksheetAnalysis
+    Next i
+End Sub
+
+
+
+
+
+Sub WorksheetMarketAnalysis():
+    'algorithm assumes data is sorted so that tickers are stored next to each other
+    'otherwise, would have to create some object or use some more complex data structure to handle the information effectively
+
+    Dim rowMax As Long
+    'this gets us the count of non empty rows
+    rowMax = Cells(Cells.Rows.Count, "A").End(xlUp).row
+    
+    Dim runningVolume As LongLong
+    Dim currentTicker As String
+    Dim firstOpen As Double
+    Dim lastClose As Double
+    Dim yearlyChange As Double
+    
+    
+    'Could use these if I want to refactor my DeriveExtremes
+    'Dim maxGain As Double
+    'Dim maxLoss As Double
+    'Dim maxTotalVolume As LongLong
+    
+
+    'normally this should rely on initialization/config/setup. We don't want to use literals (But we are relying on column formatting literals already)
+    Dim firstDataRow As Long
+    firstDataRow = 2
+    
+    'decided to init the firstOpen here instead of placing a check in the iteration
+    firstOpen = Cells(firstDataRow, 3).Value
+    
+    Dim summaryRow As Long
+    summaryRow = 1
+    
+    runningVolume = 0
+    
+    'Setup columns where data will be stored:
+    Cells(1, 9).Value = "Ticker"
+    Cells(1, 10).Value = "Yearly Change"
+    Cells(1, 11).Value = "Percent Change"
+    Cells(1, 12).Value = "Total Stock Volume"
+    
+    
+    'iteration through all rows:
+    Dim row As Long
+    For row = 2 To rowMax
+        'set current ticker
+        currentTicker = Cells(row, 1).Value
+        runningVolume = runningVolume + Cells(row, 7).Value
+        
+        'check next row
+        If CheckNextRow(row, currentTicker) = 1 Then
+            'shouldn't need to do anything here
+        Else
+            'case where we have started a new ticker or end of data
+            'bring all data to the table - first increment summaryRow
+            summaryRow = summaryRow + 1
+            
+            lastClose = Cells(row, 6).Value
+            Call StoreTicker(row, currentTicker, firstOpen, lastClose, runningVolume, summaryRow)
+        
+            'set new initials for current ticker
+            runningVolume = 0
+            'check if next row is defined
+            If CheckNextRow(row, currentTicker) = 2 Then
+                firstOpen = Cells(row + 1, 3).Value
+            End If
+            
+        End If
+            
+    Next row
+    
+    Call DeriveExtremes
+End Sub
+
+
+'checks the next row to see if same ticker (case = 1) different ticker (case = 2) or empty (case = 3)
+Function CheckNextRow(currentRow As Long, currentTicker As String) As Integer
+    If IsEmpty(Cells(currentRow + 1, 1)) Then
+        CheckNextRow = 3
+    Else
+        If Cells(currentRow + 1, 1).Value = currentTicker Then
+            CheckNextRow = 1
+        Else
+            CheckNextRow = 2
+        End If
+    End If
+End Function
+
+'would love to create a Ticker struct with this data so I could just pass the one variable
+'sub procedure that stores values with proper formatting in summary table, this runs when CheckNext returns a value greater than 1
+Sub StoreTicker(currentRow As Long, currentTicker As String, firstOpen As Double, lastClose As Double, runningVolume As LongLong, summaryRow As Long):
+            'set current ticker in table
+            Cells(summaryRow, 9).Value = currentTicker
+            
+            Dim yearChange As Double
+            'set yearly change and format column
+            yearChange = lastClose - firstOpen
+            Cells(summaryRow, 10).Value = yearChange
+            If (yearChange > 0) Then
+                'growth in value is green, code 4
+                Cells(summaryRow, 10).Interior.ColorIndex = 4
+            ElseIf (yearChange < 0) Then
+                'decreae is red, code 3
+                Cells(summaryRow, 10).Interior.ColorIndex = 3
+            End If
+
+            
+            'set percent change and format column
+            Cells(summaryRow, 11).Value = (yearChange / firstOpen)
+            Cells(summaryRow, 11).NumberFormat = "0.00%"
+            
+            'set total stock volume
+            Cells(summaryRow, 12).Value = runningVolume
+            'Cells(summaryRow, 12).NumberFormat = "##0.00E+00"
+            'Cells(summaryRow, 12).NumberFormat = "0"
+End Sub
+
+
+
+Sub ResetWorksheetAnalysis():
+    Dim rowMax As Long
+    'this gets us the count of non empty rows
+    rowMax = Cells(Cells.Rows.Count, "I").End(xlUp).row
+    
+    Range(Cells(1, 9), Cells(rowMax, 12)).Value = ""
+    Range(Cells(1, 9), Cells(rowMax, 12)).Interior.ColorIndex = 0
+    
+    Range(Cells(1, 15), Cells(4, 17)).Value = ""
+    
+End Sub
+
+
+
+
+
+'alternatively, could have kept a variable in iteration that holds maxIncrease, maxDecrease, maxVolume and updated the table as we went
+'but modular approach seemed cleaner at first, and excel has these functions already
+Sub DeriveExtremes():
+
+    Dim rowMax As Long
+    'this gets us the count of non empty rows in column I
+    rowMax = Cells(Cells.Rows.Count, "I").End(xlUp).row
+    
+    Cells(1, 16).Value = "Ticker"
+    Cells(1, 17).Value = "Value"
+    
+    
+    'find max gain
+    Cells(2, 15).Value = "Greatest % Increase"
+    Cells(2, 17).NumberFormat = "0.00%"
+    Dim maxGain As Double
+    maxGain = Application.WorksheetFunction.Max(Range(Cells(2, 11), Cells(rowMax, 11)))
+    Cells(2, 17).Value = maxGain
+    'find corresponding ticker
+    Cells(2, 16).Value = Application.WorksheetFunction.XLookup(maxGain, Range(Cells(2, 11), Cells(rowMax, 11)), Range(Cells(2, 9), Cells(rowMax, 9)), 0)
+    
+    'find max loss
+    Cells(3, 15).Value = "Greatest % Decrease"
+    Cells(3, 17).NumberFormat = "0.00%"
+    Dim maxLoss As Double
+    maxLoss = Application.WorksheetFunction.Min(Range(Cells(2, 11), Cells(rowMax, 11)))
+    Cells(3, 17).Value = maxLoss
+    'find corresponding ticker
+    Cells(3, 16).Value = Application.WorksheetFunction.XLookup(maxLoss, Range(Cells(2, 11), Cells(rowMax, 11)), Range(Cells(2, 9), Cells(rowMax, 9)), 0)
+    
+    'find max total volume
+    Cells(4, 15).Value = "Greatest Total Volume"
+    Dim maxTotalVolume As LongLong
+    maxTotalVolume = Application.WorksheetFunction.Max(Range(Cells(2, 12), Cells(rowMax, 12)))
+    Cells(4, 17).Value = maxTotalVolume
+    'find corresponding ticker
+    Cells(4, 16).Value = Application.WorksheetFunction.XLookup(maxTotalVolume, Range(Cells(2, 12), Cells(rowMax, 12)), Range(Cells(2, 9), Cells(rowMax, 9)), 0)
+    
+    
+End Sub
